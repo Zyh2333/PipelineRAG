@@ -3,6 +3,7 @@ import numpy as np
 from typing import List, Dict, Optional, Tuple, Any
 import logging
 from nodes.base import BaseComponent
+import torch
 from storage.base import BaseStorage
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,10 @@ class TextEmbeddingNode(BaseComponent):
             storage: 可选的存储实例
         """
         super().__init__(storage=storage)
-        self.model = SentenceTransformer(model_name)
+        # self.model = SentenceTransformer(model_name)
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        print('device:', device)
+        self.model = SentenceTransformer(model_name, device=device)
         self.model_name = model_name
 
     def run(self,

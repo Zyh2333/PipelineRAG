@@ -88,7 +88,9 @@ def query_documents():
         # storage=ExcelStorage("data/prompts.xlsx")
     )
     gpt_node = GPT3Node(
-        api_key="Bearer 默认api2d对应api key", #默认采用api2d对应api key
+        # api_key="Bearer 默认api2d对应api key", #默认采用api2d对应api key
+        api_key="sk-uz2K0lhafPFynE77BBX5v0adDXDzxJWir05jrlPCPQoMslp9",
+        model="gpt-3.5-turbo"#默认采用api2d对应api key
         # storage=ExcelStorage("data/gpt_responses.xlsx")
     )
 

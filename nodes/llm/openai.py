@@ -6,6 +6,7 @@ import time
 import logging
 from nodes.base import BaseComponent
 from storage.base import BaseStorage
+from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
@@ -35,18 +36,41 @@ class GPT3Node(BaseComponent):
         """
         super().__init__(storage=storage)
         self.api_key = api_key
-        self.model = model
+        self.base_url = "https://api.chatanywhere.tech/v1"
+        self.model = "gpt-3.5-turbo"
         self.temperature = temperature
         self.top_p = top_p
         self.max_retries = max_retries
         self.retry_delay = retry_delay
 
         # 初始化HTTP连接
-        self.conn = http.client.HTTPSConnection("oa.api2d.net")
-        self.headers = {
-            'Content-Type': 'application/json',
-            'Authorization': f'{self.api_key}'
-        }
+        # self.conn = http.client.HTTPSConnection("oa.api2d.net")
+        # self.headers = {
+        #     'Content-Type': 'application/json',
+        #     'Authorization': f'{self.api_key}'
+        # }
+
+
+    def chat_llm(self, messages, model, api_key, base_url, **kwargs):
+        # if model is None:
+            # model = openai_config.get("model", os.getenv("OPENAI_MODEL"))
+        openai_client = OpenAI(
+            api_key=api_key,
+            base_url=base_url,
+        )
+
+        # openai_messages = []
+        # for message in messages:
+        #     openai_messages.append(message.to_openai_message())
+
+        response = openai_client.chat.completions.create(
+            messages=messages,
+            model=model,
+            seed=42,
+            **kwargs
+        )
+
+        return response
 
     def run(self, prompt: str, **kwargs) -> Tuple[Dict, Optional[str]]:
         """
@@ -59,14 +83,17 @@ class GPT3Node(BaseComponent):
             Tuple[Dict, Optional[str]]: (输出字典, None)
         """
         # 准备请求数据
-        payload = {
-            "model": self.model,
-            "messages": [
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": self.temperature,
-            "top_p": self.top_p
-        }
+        # payload = {
+        #     "model": self.model,
+        #     "messages": [
+        #         {"role": "user", "content": prompt}
+        #     ],
+        #     "temperature": self.temperature,
+        #     "top_p": self.top_p
+        # }
+        payload = [
+            {"role": "user", "content": prompt}
+        ]
 
         # 尝试发送请求
         for attempt in range(self.max_retries):
@@ -96,7 +123,7 @@ class GPT3Node(BaseComponent):
                 else:
                     raise RuntimeError(f"达到最大重试次数，最后的错误: {str(e)}")
 
-    def _make_request(self, payload: Dict) -> Dict:
+    def _make_request(self, payload) -> Dict:
         """
         发送API请求
 
@@ -108,19 +135,19 @@ class GPT3Node(BaseComponent):
         """
         try:
             # 发送请求
-            self.conn.request("POST", "/v1/chat/completions",
-                              json.dumps(payload), self.headers)
+            # self.conn.request("POST", "/v1/chat/completions",
+            #                   json.dumps(payload), self.headers)
 
             # 获取响应
-            response = self.conn.getresponse()
-            data = response.read()
+            response = self.chat_llm(payload, self.model, self.api_key, self.base_url)
+            # data = response.read()
 
             # 检查响应状态
-            if response.status != 200:
-                raise ValueError(f"API请求失败: HTTP {response.status} - {data.decode('utf-8')}")
+            # if response.status != 200:
+            #     raise ValueError(f"API请求失败: HTTP {response.status} - {data.decode('utf-8')}")
 
             # 解析响应
-            return json.loads(data.decode("utf-8"))
+            return json.loads(response.to_json())
 
         except Exception as e:
             raise RuntimeError(f"API请求异常: {str(e)}")
