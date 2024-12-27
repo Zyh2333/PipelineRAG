@@ -9,6 +9,7 @@ from nodes.llm.openai import GPT3Node
 from storage.excel_storage import ExcelStorage
 from pipelines.base import Pipeline
 from nodes.prompt.prompt_node import PromptNode
+import gradio as gr
 
 
 def get_all_pdf_files(root_dir: str) -> list:
@@ -103,6 +104,20 @@ def query_documents():
     return query_pipeline
 
 
+def answer_question(query: str, history: list) -> tuple:
+    """给定一个问题，返回AI的回答并更新历史记录"""
+    if history is None:
+        history = []
+    try:
+        result = query_pipeline.run(query=query)
+        response = result['response']
+        history.append((query, response))
+        return history, history  # 返回更新后的对话历史两次，以匹配输入输出
+    except Exception as e:
+        error_message = f"处理查询时出错: {str(e)}"
+        history.append((query, error_message))
+        return history, history  # 同样地，这里也返回两次
+
 def main():
     # 设置基础存储目录
     os.makedirs("data", exist_ok=True)
@@ -116,14 +131,6 @@ def main():
         return
 
     print(f"找到 {len(pdf_files)} 个PDF文件:")
-    for file in pdf_files:
-        print(f"- {file}")
-
-    # 确认是否继续
-    response = input("\n是否开始处理这些文件? (y/n): ")
-    if response.lower() != 'y':
-        print("操作已取消")
-        return
 
     # 处理文档
     print("\n开始处理文档...")
@@ -131,25 +138,19 @@ def main():
     indexing_pipeline.run(file_paths=pdf_files)
     print("文档处理完成！\n")
 
-    # 查询循环
+    global query_pipeline
     query_pipeline = query_documents()
 
-    print("进入问答模式，您可以开始提问了！")
-    print("提示：您可以询问关于任何已处理文档中的内容")
-    print("输入 'q' 退出程序\n")
+    # 创建Gradio接口
+    iface = gr.Interface(
+        fn=answer_question,
+        inputs=[gr.Textbox(lines=2, placeholder="输入您的问题..."), "state"],
+        outputs=["chatbot", "state"],
+        title="智能问答系统",
+        description="输入您的问题，获取关于已处理文档的信息。",
+    )
 
-    while True:
-        query = input("\n请输入您的问题: ")
-        if query.lower() == 'q':
-            break
-
-        try:
-            result = query_pipeline.run(query=query)
-            print(f"\nAI回答: {result['response']}")
-        except Exception as e:
-            print(f"\n处理查询时出错: {str(e)}")
-            print("请重试或输入新的问题")
-
+    iface.launch(server_name="0.0.0.0", server_port=7860)
 
 if __name__ == "__main__":
     try:
